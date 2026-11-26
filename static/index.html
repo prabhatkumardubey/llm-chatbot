@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>llmchat</title>
+<style>
+*{box-sizing:border-box}body{margin:0;display:flex;height:100vh;font:15px/1.5 system-ui,sans-serif;background:#0e131b;color:#e7eaf0}
+aside{width:240px;border-right:1px solid #263042;padding:12px;overflow:auto}main{flex:1;display:flex;flex-direction:column;min-width:0}
+button,select,textarea{font:inherit;background:#151c27;color:inherit;border:1px solid #263042;border-radius:8px;padding:8px}
+button{cursor:pointer}#new{width:100%;margin-bottom:10px}.c{display:flex;gap:4px;margin:4px 0}.c button:first-child{flex:1;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+header{padding:10px 16px;border-bottom:1px solid #263042;display:flex;gap:10px;align-items:center}
+#log{flex:1;overflow:auto;padding:16px}.m{max-width:46rem;margin:0 auto 12px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;background:#151c27}.m.user{background:#1d2a3d}
+form{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #263042}textarea{flex:1;resize:none}
+.src{max-width:46rem;margin:-6px auto 12px;font-size:12px;color:#97a3b6}details{margin-top:14px}details input,details textarea{width:100%;margin:4px 0}
+#auth{display:none;position:fixed;inset:0;background:#0e131bf2;align-items:center;justify-content:center;z-index:10}#auth form{background:#151c27;border:1px solid #263042;border-radius:12px;padding:20px;width:300px;display:flex;flex-direction:column;gap:10px}#auth input{background:#0e131b;color:inherit;border:1px solid #263042;border-radius:8px;padding:8px;font:inherit}#aerr{color:#f08a8a;margin:0;font-size:13px}
+</style></head><body>
+<aside><button id="new">New chat</button><div id="list"></div><details><summary>Documents</summary><input id="dt" placeholder="Title"><textarea id="dx" rows="4" placeholder="Paste text"></textarea><button id="adddoc">Add</button><div id="docs"></div></details></aside>
+<main><header><b>llmchat</b><select id="prov"></select><label><input type="checkbox" id="usedocs"> Use documents</label><button id="logout" style="margin-left:auto">Log out</button></header><div id="log"></div>
+<form id="f"><textarea id="t" rows="2" placeholder="Message (Enter to send, Shift+Enter for newline)"></textarea><button>Send</button></form></main>
+<div id="auth"><form onsubmit="return false"><h3>Sign in to llmchat</h3><input id="au" placeholder="Username" autocomplete="username"><input id="ap" type="password" placeholder="Password" autocomplete="current-password"><div><button id="login">Log in</button> <button id="register">Register</button></div><p id="aerr"></p></form></div>
+<script>
+const $=s=>document.querySelector(s);let cid=null;
+let tok=sessionStorage.getItem('tok');
+const H=(x={})=>tok?{...x,Authorization:'Bearer '+tok}:x;
+const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:H(o.headers)});if(r.status===401){showAuth();throw new Error('Please sign in')}if(!r.ok)throw new Error(await r.text());return r.json()};
+function bubble(role,text){const d=document.createElement('div');d.className='m '+role;d.textContent=text;$('#log').append(d);d.scrollIntoView();return d}
+async function providers(){const d=await api('/api/providers');$('#prov').replaceChildren();for(const n of d.available){const o=new Option(n,n);o.selected=n===d.default;$('#prov').add(o)}}
+async function list(){const items=await api('/api/conversations');$('#list').replaceChildren(...items.map(c=>{
+  const row=document.createElement('div');row.className='c';
+  const open=document.createElement('button');open.textContent=c.title;open.onclick=()=>load(c.id);
+  const del=document.createElement('button');del.textContent='×';del.onclick=async()=>{await api('/api/conversations/'+c.id,{method:'DELETE'});if(cid===c.id)reset();list()};
+  row.append(open,del);return row}))}
+function reset(){cid=null;$('#log').replaceChildren()}
+async function load(id){const d=await api('/api/conversations/'+id);cid=id;$('#log').replaceChildren();d.messages.forEach(m=>bubble(m.role,m.content))}
+function handle(raw,b){const ev=/event: (.*)/.exec(raw)[1],data=JSON.parse(/data: (.*)/.exec(raw)[1]);
+  if(ev==='meta')cid=data.conversation_id;else if(ev==='token')b.textContent+=data.text;else if(ev==='error')b.textContent+=' ['+data.message+']';
+  else if(ev==='sources'&&data.sources.length){const s=document.createElement('div');s.className='src';s.textContent='Sources: '+data.sources.map(x=>'['+x.n+'] '+x.document+' ('+x.score+')').join(', ');b.after(s)}}
+async function docs(){const d=await api('/api/documents');$('#docs').replaceChildren(...d.map(x=>{const r=document.createElement('div');r.className='c';const t=document.createElement('span');t.textContent=x.title+' ('+x.chunks+')';t.style.flex=1;const del=document.createElement('button');del.textContent='×';del.onclick=async()=>{await api('/api/documents/'+x.id,{method:'DELETE'});docs()};r.append(t,del);return r}))}
+$('#adddoc').onclick=async()=>{const title=$('#dt').value.trim(),text=$('#dx').value.trim();if(!title||!text)return;try{await api('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,text})});$('#dt').value=$('#dx').value='';docs()}catch(e){alert('Could not add document: '+e.message)}};
+async function send(text){bubble('user',text);const b=bubble('assistant','');
+  const res=await fetch('/api/chat',{method:'POST',headers:H({'Content-Type':'application/json'}),body:JSON.stringify({message:text,conversation_id:cid,provider:$('#prov').value,use_docs:$('#usedocs').checked})});
+  if(res.status===401){showAuth();return}if(!res.ok){b.textContent='Error: '+await res.text();return}
+  const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
+  for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+    let i;while((i=buf.indexOf('\n\n'))>=0){handle(buf.slice(0,i),b);buf=buf.slice(i+2)}b.scrollIntoView()}
+  list()}
+$('#f').onsubmit=e=>{e.preventDefault();const v=$('#t').value.trim();if(v){$('#t').value='';send(v)}};
+$('#t').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#f').requestSubmit()}};
+function showAuth(){$('#auth').style.display='flex'}
+async function sign(kind){$('#aerr').textContent='';
+  const r=await fetch('/api/auth/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('#au').value,password:$('#ap').value})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){$('#aerr').textContent=typeof d.detail==='string'?d.detail:'Username: 3-32 letters, digits, _ . - ; password: 8+ characters';return}
+  tok=d.token;sessionStorage.setItem('tok',tok);$('#auth').style.display='none';$('#ap').value='';init()}
+function init(){reset();providers();list();docs()}
+$('#login').onclick=()=>sign('login');$('#register').onclick=()=>sign('register');
+$('#logout').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'})}catch(e){}tok=null;sessionStorage.removeItem('tok');reset();showAuth()};
+$('#new').onclick=reset;api('/api/auth/me').then(init).catch(()=>{});
+</script></body></html>

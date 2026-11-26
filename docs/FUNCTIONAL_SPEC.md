@@ -6,7 +6,7 @@
 `llmchat` lets a person hold multi-turn conversations with a large language model (LLM) through a web UI or an HTTP API, choosing among interchangeable model providers, with history saved between sessions.
 
 **In scope (v0.1):** streamed chat, multi-turn context, persistent history, provider selection, configurable system prompt, input validation, error handling, a minimal UI.
-**Out of scope (v0.1 core):** email verification, password reset, MFA, roles and organisations, tool/function calling, file or image input, usage billing, mobile apps.
+**Out of scope (v0.1 core):** email verification, password reset, MFA, roles and organisations, file or image input, usage billing, mobile apps.
 
 ## 2. Actors
 | Actor | Goal |
@@ -32,14 +32,14 @@
 | FR-12 | Authentication and per-user history | Users see only their own conversations and documents | Done (phase 3, see [AUTH_SPEC](AUTH_SPEC.md)) |
 | FR-13 | Rate limiting | Chat requests per user per minute and login attempts per IP are limited; 429 with `Retry-After` | Done (usage/spend caps still planned) |
 | FR-14 | Retrieval-augmented answers (RAG) | Answers can cite added documents | Done (phase 2, see [RAG_SPEC](RAG_SPEC.md)) |
-| FR-15 | Tool/function calling | The model can call whitelisted tools | Planned |
+| FR-15 | Tool/function calling | The model can call allow-listed tools in a bounded loop | Done (phase 4, see [TOOLS_SPEC](TOOLS_SPEC.md)) |
 | FR-16 | Stop and regenerate | The user can cancel a reply or regenerate it | Planned |
 | FR-17 | Token usage reporting | Input/output tokens are recorded per exchange | Planned |
 
 ## 4. Non-functional requirements
 | ID | Requirement | How it is met today |
 | --- | --- | --- |
-| NFR-1 Testability | Core logic is testable without network or keys | Mock provider, injected store, 33 automated tests |
+| NFR-1 Testability | Core logic is testable without network or keys | Mock provider, injected store, 53 automated tests |
 | NFR-2 Portability | Runs locally, in Docker, in CI | Standard library SQLite, Dockerfile, GitHub Actions |
 | NFR-3 Security | No secrets in the repository; safe rendering; bounded input | Keys from environment only; UI uses `textContent`; length limits |
 | NFR-4 Maintainability | Adding a provider touches one file | Provider interface plus registry (see tech spec) |

@@ -9,6 +9,7 @@ Built as an engineering portfolio project, so the documentation is as important 
 | [docs/FUNCTIONAL_SPEC.md](docs/FUNCTIONAL_SPEC.md) | What the system does: requirements, user flows, API contract, traceability to tests |
 | [docs/TECH_SPEC.md](docs/TECH_SPEC.md) | How and why: architecture, stack choices and alternatives, data model, algorithms, design patterns, SOLID, OOP, concurrency, security, limits |
 | [docs/RAG_SPEC.md](docs/RAG_SPEC.md) | Phase 2: retrieval-augmented answers over your own documents, plus hybrid keyword + vector search (specs written before the code) |
+| [docs/TOOLS_SPEC.md](docs/TOOLS_SPEC.md) | Phase 4: model tool/function calling (provider-neutral loop, safe tools, limits) and RAG re-ranking (RAG_SPEC section 14) |
 | [docs/AUTH_SPEC.md](docs/AUTH_SPEC.md) | Phase 3: accounts, per-user data isolation, rate limiting, threat model (spec written before the code) |
 
 ## Quick start (no API key needed)
@@ -37,7 +38,8 @@ Model names are configurable (`ANTHROPIC_MODEL`, `OPENAI_MODEL`), because model 
 | `GET /api/conversations` | List conversations, newest first |
 | `GET /api/conversations/{id}` | Load one conversation's messages |
 | `DELETE /api/conversations/{id}` | Delete a conversation and its messages |
-| `POST /api/documents`, `GET /api/documents`, `DELETE /api/documents/{id}` | Add, list and delete documents for retrieval (RAG). Send `"use_docs": true` to `/api/chat` to answer from them; a `sources` event lists the citations |
+| `POST /api/documents`, `GET /api/documents`, `DELETE /api/documents/{id}` | Add, list and delete documents for retrieval (RAG). Send `"use_docs": true` to `/api/chat` to answer from them; a `sources` event lists the citations. Set `RAG_RERANK=lexical` or `llm` to re-rank candidates |
+| `POST /api/chat` with `"use_tools": true` | Lets the model call `calculator`, `get_current_time` and `search_documents`; `tool_call` and `tool_result` events show each step. Try `calc: 2+3*4` with the mock provider |
 | `GET /api/providers` | Configured providers and the default |
 | `GET /health` | Liveness check |
 
@@ -56,10 +58,11 @@ docker build -t llmchat . && docker run -p 8000:8000 -v llmchat-data:/data -e AN
 app/config.py      settings from environment        app/providers.py  LLM strategy classes + registry
 app/context.py     context-window trimming          app/store.py      SQLite repository
 app/rag.py         chunking, embeddings, vector search, prompt grounding
+app/rerank.py      re-rankers (none, lexical, LLM)      app/tools.py + agent.py  tool registry, safe execution, tool loop
 app/auth.py        users, scrypt password hashing, sessions     app/ratelimit.py  token-bucket rate limiter
 app/main.py        FastAPI app factory and routes   static/index.html web UI (vanilla JS, SSE client)
 tests/             pytest suite (mock provider)     docs/             specs (functional, technical, RAG, auth)
 ```
 
 ## Status
-Implemented: streaming chat, multi-provider, persistence, context trimming, validation, error handling, UI, tests, Docker, CI. Phase 2 (RAG) is implemented with **hybrid retrieval** (keyword BM25 + vector search merged by reciprocal rank fusion), an offline word-overlap embedder by default and an optional OpenAI embedder; see `docs/RAG_SPEC.md` for its limits. Phase 3 adds registration/login, per-user data isolation and rate limiting (see `docs/AUTH_SPEC.md`; hand-built with scrypt and server-side sessions, and a managed identity provider is the usual production choice). Not implemented (see the roadmap in the tech spec): email verification, password reset, MFA, tool use, token accounting, observability.
+Implemented: streaming chat, multi-provider, persistence, context trimming, validation, error handling, UI, tests, Docker, CI. Phase 2 (RAG) is implemented with **hybrid retrieval** (keyword BM25 + vector search merged by reciprocal rank fusion), an offline word-overlap embedder by default and an optional OpenAI embedder; see `docs/RAG_SPEC.md` for its limits. Phase 3 adds registration/login, per-user data isolation and rate limiting (see `docs/AUTH_SPEC.md`; hand-built with scrypt and server-side sessions, and a managed identity provider is the usual production choice). Phase 4 adds tool calling (bounded loop, allow-listed read-only tools) and optional re-ranking; see `docs/TOOLS_SPEC.md`. The re-rankers are a word-overlap heuristic and an LLM call, not a trained cross-encoder. Not implemented (see the roadmap in the tech spec): email verification, password reset, MFA, a trained cross-encoder, streaming during tool rounds,  token accounting, observability.

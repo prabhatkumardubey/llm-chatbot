@@ -193,7 +193,7 @@ Structured JSON logs with a request ID; metrics for time to first token, total l
 
 ## 18. Roadmap (phase 2 design sketches)
 - **RAG (implemented in phase 2; see [RAG_SPEC](RAG_SPEC.md) for the actual design and its limits; hybrid BM25 + vector retrieval with rank fusion was added as phase 2b):** ingest documents → split into overlapping chunks (e.g. a few hundred tokens) → embed → store in a vector index (pgvector, Chroma or FAISS) → at query time embed the question, retrieve top-k chunks (optionally re-rank) → insert them into the prompt with source labels → answer with citations. Needs an evaluation set for retrieval quality.
-- **Tools / agents:** a tool registry with JSON-schema arguments, model-chosen calls, server-side execution with allow-lists and timeouts.
+- **Tools / agents (implemented in phase 4; see [TOOLS_SPEC](TOOLS_SPEC.md)):** a tool registry with JSON-schema arguments, model-chosen calls, server-side execution with allow-lists and timeouts.
 - **Auth and limits:** OIDC login, `user_id` on conversations, token-bucket rate limiting in Redis.
 - **Reliability:** provider decorator with retry, timeout, circuit breaker and fallback model.
 - **Cost and quality:** token accounting, prompt caching, summarisation memory, evaluation harness.

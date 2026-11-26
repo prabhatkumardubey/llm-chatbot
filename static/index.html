@@ -13,7 +13,7 @@ form{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #263042}textare
 #auth{display:none;position:fixed;inset:0;background:#0e131bf2;align-items:center;justify-content:center;z-index:10}#auth form{background:#151c27;border:1px solid #263042;border-radius:12px;padding:20px;width:300px;display:flex;flex-direction:column;gap:10px}#auth input{background:#0e131b;color:inherit;border:1px solid #263042;border-radius:8px;padding:8px;font:inherit}#aerr{color:#f08a8a;margin:0;font-size:13px}
 </style></head><body>
 <aside><button id="new">New chat</button><div id="list"></div><details><summary>Documents</summary><input id="dt" placeholder="Title"><textarea id="dx" rows="4" placeholder="Paste text"></textarea><button id="adddoc">Add</button><div id="docs"></div></details></aside>
-<main><header><b>llmchat</b><select id="prov"></select><label><input type="checkbox" id="usedocs"> Use documents</label><button id="logout" style="margin-left:auto">Log out</button></header><div id="log"></div>
+<main><header><b>llmchat</b><select id="prov"></select><label><input type="checkbox" id="usedocs"> Use documents</label><label><input type="checkbox" id="usetools"> Use tools</label><button id="logout" style="margin-left:auto">Log out</button></header><div id="log"></div>
 <form id="f"><textarea id="t" rows="2" placeholder="Message (Enter to send, Shift+Enter for newline)"></textarea><button>Send</button></form></main>
 <div id="auth"><form onsubmit="return false"><h3>Sign in to llmchat</h3><input id="au" placeholder="Username" autocomplete="username"><input id="ap" type="password" placeholder="Password" autocomplete="current-password"><div><button id="login">Log in</button> <button id="register">Register</button></div><p id="aerr"></p></form></div>
 <script>
@@ -32,11 +32,12 @@ function reset(){cid=null;$('#log').replaceChildren()}
 async function load(id){const d=await api('/api/conversations/'+id);cid=id;$('#log').replaceChildren();d.messages.forEach(m=>bubble(m.role,m.content))}
 function handle(raw,b){const ev=/event: (.*)/.exec(raw)[1],data=JSON.parse(/data: (.*)/.exec(raw)[1]);
   if(ev==='meta')cid=data.conversation_id;else if(ev==='token')b.textContent+=data.text;else if(ev==='error')b.textContent+=' ['+data.message+']';
+  else if(ev==='tool_call'||ev==='tool_result'){const s=document.createElement('div');s.className='src';s.textContent=ev==='tool_call'?'Tool call: '+data.name+'('+JSON.stringify(data.arguments)+')':'Tool result: '+data.output;b.before(s)}
   else if(ev==='sources'&&data.sources.length){const s=document.createElement('div');s.className='src';s.textContent='Sources: '+data.sources.map(x=>'['+x.n+'] '+x.document+' ('+x.score+')').join(', ');b.after(s)}}
 async function docs(){const d=await api('/api/documents');$('#docs').replaceChildren(...d.map(x=>{const r=document.createElement('div');r.className='c';const t=document.createElement('span');t.textContent=x.title+' ('+x.chunks+')';t.style.flex=1;const del=document.createElement('button');del.textContent='×';del.onclick=async()=>{await api('/api/documents/'+x.id,{method:'DELETE'});docs()};r.append(t,del);return r}))}
 $('#adddoc').onclick=async()=>{const title=$('#dt').value.trim(),text=$('#dx').value.trim();if(!title||!text)return;try{await api('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,text})});$('#dt').value=$('#dx').value='';docs()}catch(e){alert('Could not add document: '+e.message)}};
 async function send(text){bubble('user',text);const b=bubble('assistant','');
-  const res=await fetch('/api/chat',{method:'POST',headers:H({'Content-Type':'application/json'}),body:JSON.stringify({message:text,conversation_id:cid,provider:$('#prov').value,use_docs:$('#usedocs').checked})});
+  const res=await fetch('/api/chat',{method:'POST',headers:H({'Content-Type':'application/json'}),body:JSON.stringify({message:text,conversation_id:cid,provider:$('#prov').value,use_docs:$('#usedocs').checked,use_tools:$('#usetools').checked})});
   if(res.status===401){showAuth();return}if(!res.ok){b.textContent='Error: '+await res.text();return}
   const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
   for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});

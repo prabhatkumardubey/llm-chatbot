@@ -30,6 +30,10 @@ class Settings:
     session_days: int
     rate_limit_chat_per_min: int
     rate_limit_auth_per_min: int
+    rag_rerank: str
+    rag_candidates: int
+    tool_max_steps: int
+    tool_timeout_s: float
 
 
 def get_settings() -> Settings:
@@ -60,4 +64,8 @@ def get_settings() -> Settings:
         session_days=int(e("SESSION_DAYS", "7")),
         rate_limit_chat_per_min=int(e("RATE_LIMIT_CHAT_PER_MIN", "20")),
         rate_limit_auth_per_min=int(e("RATE_LIMIT_AUTH_PER_MIN", "10")),
+        rag_rerank=e("RAG_RERANK", "none"),
+        rag_candidates=int(e("RAG_CANDIDATES", "20")),
+        tool_max_steps=int(e("TOOL_MAX_STEPS", "4")),
+        tool_timeout_s=float(e("TOOL_TIMEOUT_SECONDS", "5")),
     )

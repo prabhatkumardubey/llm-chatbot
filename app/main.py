@@ -12,10 +12,13 @@ from starlette.concurrency import run_in_threadpool
 from . import auth
 from .config import get_settings
 from .context import trim_history
-from .providers import ProviderError, available_providers, get_provider
+from .agent import run_tool_loop
+from .providers import ProviderError, ToolUser, available_providers, get_provider
 from .rag import KnowledgeBase, build_system, make_embedder
 from .ratelimit import RateLimiter
+from .rerank import make_reranker
 from .store import Store
+from .tools import ToolContext, default_tools
 
 log = logging.getLogger("llmchat")
 STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -27,6 +30,7 @@ class ChatRequest(BaseModel):
     provider: str | None = None
     system: str | None = Field(default=None, max_length=2000)
     use_docs: bool = False
+    use_tools: bool = False
 
 
 class DocumentIn(BaseModel):
@@ -54,6 +58,8 @@ def create_app(store: Store | None = None, kb: KnowledgeBase | None = None) -> F
     store = store or Store(settings.db_path)
     kb = kb or KnowledgeBase(store.path, make_embedder(settings), settings.rag_chunk_words, settings.rag_overlap_words)
     limiter = RateLimiter()
+    reranker = make_reranker(settings.rag_rerank)
+    tools = default_tools()
     if not settings.auth_required:
         auth.ensure_local_user(store.path)
     app = FastAPI(title="llmchat", version="0.3.0")
@@ -147,6 +153,8 @@ def create_app(store: Store | None = None, kb: KnowledgeBase | None = None) -> F
             provider = get_provider(req.provider or settings.default_provider)
         except ProviderError as e:
             raise HTTPException(400, str(e))
+        if req.use_tools and not isinstance(provider, ToolUser):
+            raise HTTPException(400, "this provider does not support tools")
         cid = req.conversation_id
         if cid:
             if not await run_in_threadpool(store.exists, uid, cid):
@@ -160,9 +168,11 @@ def create_app(store: Store | None = None, kb: KnowledgeBase | None = None) -> F
         sources: list[dict] = []
         if req.use_docs:
             try:
-                sources = await run_in_threadpool(
-                    kb.search, uid, req.message, settings.rag_top_k, settings.rag_min_score,
+                pool = settings.rag_top_k if settings.rag_rerank == "none" else settings.rag_candidates
+                found = await run_in_threadpool(
+                    kb.search, uid, req.message, pool, settings.rag_min_score,
                     settings.rag_mode, settings.rag_min_bm25)
+                sources = await reranker.rerank(req.message, found, settings.rag_top_k, provider)
             except Exception:
                 log.exception("retrieval failed")
                 raise HTTPException(502, "document retrieval failed")
@@ -172,13 +182,26 @@ def create_app(store: Store | None = None, kb: KnowledgeBase | None = None) -> F
             yield sse("meta", {"conversation_id": cid, "provider": provider.name})
             if req.use_docs:
                 yield sse("sources", {"sources": [
-                    {"n": s["n"], "document": s["document"], "snippet": s["text"][:200], "score": s["score"], "via": s["via"]}
+                    {"n": s["n"], "document": s["document"], "snippet": s["text"][:200], "score": s["score"], "via": s["via"],
+                     "retrieval_score": s.get("retrieval_score")}
                     for s in sources]})
             parts: list[str] = []
             try:
-                async for tok in provider.stream(history, system, settings.max_output_tokens):
-                    parts.append(tok)
-                    yield sse("token", {"text": tok})
+                if req.use_tools:
+                    turns = [dict(m) for m in history]
+                    ctx = ToolContext(uid, kb, settings)
+                    async for ev in run_tool_loop(provider, turns, system, tools, ctx, settings.tool_max_steps,
+                                                  settings.max_output_tokens, settings.tool_timeout_s):
+                        if ev["type"] == "final":
+                            for i in range(0, len(ev["text"]), 24):  # tool rounds do not stream, so chunk the answer
+                                parts.append(ev["text"][i:i + 24])
+                                yield sse("token", {"text": ev["text"][i:i + 24]})
+                        else:
+                            yield sse(ev["type"], {k: v for k, v in ev.items() if k != "type"})
+                else:
+                    async for tok in provider.stream(history, system, settings.max_output_tokens):
+                        parts.append(tok)
+                        yield sse("token", {"text": tok})
             except Exception:
                 log.exception("provider %s failed", provider.name)
                 yield sse("error", {"message": "The model request failed. Check the server logs."})

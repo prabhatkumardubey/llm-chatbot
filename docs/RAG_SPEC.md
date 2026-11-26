@@ -81,7 +81,7 @@ Document text is sent to the chat provider (and to the OpenAI embedder if chosen
 Hash embeddings are lexical, not semantic; brute-force search will not scale; text only; no re-ranking or query rewriting; no deduplication; threshold needs tuning.
 
 ## 11. Next steps
-Real embeddings by default; cross-encoder re-ranking; query rewriting; pgvector; PDF/Markdown loaders; evaluation harness; per-user collections.
+Real embeddings by default; a trained cross-encoder re-ranker (a heuristic and an LLM re-ranker exist, see section 14); query rewriting; pgvector; PDF/Markdown loaders; evaluation harness; per-user collections.
 
 ## 12. Traceability
 | Requirement | Code | Tests |
@@ -132,3 +132,40 @@ With the default offline embedder, both rankers are word-based, so hybrid adds l
 | H-2 | `rag._bm25` | `test_bm25_prefers_rare_term_match` |
 | H-3 | `rag.rrf` | `test_rrf_rewards_agreement` |
 | H-4, H-5 | `KnowledgeBase.search` | `test_hybrid_finds_what_vector_search_misses` |
+
+## 14. Phase 4a specification: re-ranking
+> Written before the code. Traceability is in 14.6.
+
+### 14.1 Why
+First-stage retrieval (vectors, BM25, or both) must be fast over every chunk, so it scores query and chunk separately and is only roughly accurate. A **re-ranker** looks at the query together with each candidate and reorders a short list. The standard recipe is **two-stage retrieval**: retrieve many candidates (high recall, e.g. 20), re-rank them (high precision), keep the best few (e.g. 3) for the prompt.
+
+### 14.2 Requirements
+| ID | Requirement | Acceptance criteria |
+| --- | --- | --- |
+| K-1 | Selectable re-ranker | `RAG_RERANK` is `none` (default), `lexical` or `llm` |
+| K-2 | Candidate pool | With re-ranking on, retrieval fetches `RAG_CANDIDATES` (default 20) and the re-ranker keeps `RAG_TOP_K` |
+| K-3 | Lexical re-ranker | Offline and deterministic; a chunk containing the query's words next to each other outranks one with the words scattered |
+| K-4 | LLM re-ranker | The chosen chat model orders the candidates in one call; the answer is parsed as a list of numbers |
+| K-5 | Fail open | Any re-ranker failure or unusable output keeps the original retrieval order; the chat never fails because of re-ranking |
+| K-6 | Explainable | Each source keeps its first-stage score as `retrieval_score` |
+
+### 14.3 Design
+- **Interface:** `Reranker.rerank(query, candidates, k, provider)` (Strategy again). `none` just truncates.
+- **Lexical:** score = 0.6 x (share of distinct query words present) + 0.4 x (share of adjacent query word pairs present in order). A cheap proxy for the phrase and proximity signals a learned model would use. It is a **heuristic, not a trained model**, and gives a modest gain.
+- **LLM (listwise):** one prompt lists the candidates as numbered `<passage>` blocks (each cut to 600 characters) and asks for only a JSON array of numbers, best first. One call regardless of N, cheaper and more consistent than scoring each passage alone. Cost: extra latency and tokens per question.
+- **Prompt-injection property:** the output is parsed with a strict pattern into integers that are range-checked and de-duplicated, so text hidden inside a passage can at worst change the order, never trigger an action or leak text. The prompt also tells the model passages are untrusted data.
+- **Missing numbers** in the model's list are appended in original order.
+
+### 14.4 Alternatives
+**Cross-encoder models** (BGE-reranker, MiniLM cross-encoders, Cohere Rerank, Voyage rerank): the usual production choice, trained to score (query, passage) pairs; not built here because model weights cannot be downloaded in this environment, and the interface leaves a slot for them. **Pointwise LLM scoring** (one call per passage: simple but N calls). **Maximal marginal relevance** (diversify results). **Learning-to-rank** over features such as BM25, vector score and recency.
+
+### 14.5 Caveats
+The measured benefit is unproven without the evaluation set from section 7. The LLM re-ranker's judgement depends on the model chosen and adds cost. Candidates are limited to what first-stage retrieval found, so re-ranking cannot recover a missed chunk.
+
+### 14.6 Traceability
+| Requirement | Code | Tests |
+| --- | --- | --- |
+| K-1, K-2, K-6 | `rerank.make_reranker`, `main.chat` | `test_rerank_in_chat_flow` |
+| K-3 | `rerank.LexicalReranker` | `test_lexical_reranker_prefers_adjacent_phrase` |
+| K-4 | `rerank.LLMReranker` | `test_llm_reranker_reorders` |
+| K-5 | `rerank._parse_order`, `LLMReranker` fallback | `test_llm_reranker_fails_open`, `test_parse_order_is_strict` |

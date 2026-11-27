@@ -1,0 +1,220 @@
+[
+ {
+  "id": "q1",
+  "question": "What does error E4021 mean?",
+  "relevant": [
+   "Error E4021"
+  ],
+  "type": "exact"
+ },
+ {
+  "id": "q2",
+  "question": "What is the HTTP 429 Retry-After header for?",
+  "relevant": [
+   "API rate limits"
+  ],
+  "type": "exact"
+ },
+ {
+  "id": "q3",
+  "question": "Which UDP port does the VPN gateway listen on?",
+  "relevant": [
+   "VPN setup"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q4",
+  "question": "Who gets 16 weeks of paid parental leave?",
+  "relevant": [
+   "Parental leave"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q5",
+  "question": "How many days after purchase can a customer ask for a refund?",
+  "relevant": [
+   "Refund policy"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q6",
+  "question": "How long is the password reset link valid?",
+  "relevant": [
+   "Password reset"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q7",
+  "question": "When do releases go out and when is the code freeze?",
+  "relevant": [
+   "Release process"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q8",
+  "question": "What percentage of traffic does the canary receive and for how long?",
+  "relevant": [
+   "Release process"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q9",
+  "question": "How long are application logs kept?",
+  "relevant": [
+   "Data retention"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q10",
+  "question": "How fast must I acknowledge a page when on call?",
+  "relevant": [
+   "On-call rotation"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q11",
+  "question": "Within how many hours must a security incident be reported?",
+  "relevant": [
+   "Security incident response"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q12",
+  "question": "What is the daily meal cap for expenses?",
+  "relevant": [
+   "Expense reimbursement"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q13",
+  "question": "How much is the home office stipend and what can it buy?",
+  "relevant": [
+   "Home office stipend"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q14",
+  "question": "How often are laptops replaced?",
+  "relevant": [
+   "Laptop replacement"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q15",
+  "question": "What happens after five failed login attempts?",
+  "relevant": [
+   "Password reset"
+  ],
+  "type": "keyword"
+ },
+ {
+  "id": "q16",
+  "question": "How can I get my money back for a work trip?",
+  "relevant": [
+   "Expense reimbursement"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q17",
+  "question": "What should I do if I misplace my work computer?",
+  "relevant": [
+   "Laptop replacement"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q18",
+  "question": "My phone with the authenticator was stolen, how do I sign in?",
+  "relevant": [
+   "Two-factor authentication"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q19",
+  "question": "Can new fathers take time off after a baby arrives?",
+  "relevant": [
+   "Parental leave"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q20",
+  "question": "How long do you keep customer information after someone cancels?",
+  "relevant": [
+   "Data retention"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q21",
+  "question": "What do I do if a deployment goes wrong?",
+  "relevant": [
+   "Release process"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q22",
+  "question": "How many calls per minute can my integration make?",
+  "relevant": [
+   "API rate limits"
+  ],
+  "type": "paraphrase"
+ },
+ {
+  "id": "q23",
+  "question": "How do I get reimbursed for a new monitor?",
+  "relevant": [
+   "Home office stipend",
+   "Expense reimbursement"
+  ],
+  "type": "multi"
+ },
+ {
+  "id": "q24",
+  "question": "What if I lose my phone and my VPN needs a code?",
+  "relevant": [
+   "Two-factor authentication",
+   "VPN setup"
+  ],
+  "type": "multi"
+ },
+ {
+  "id": "q25",
+  "question": "What is the company policy on pet insurance?",
+  "relevant": [],
+  "type": "unanswerable"
+ },
+ {
+  "id": "q26",
+  "question": "Who won the football world cup in 2018?",
+  "relevant": [],
+  "type": "unanswerable"
+ },
+ {
+  "id": "q27",
+  "question": "What is the dress code for client meetings?",
+  "relevant": [],
+  "type": "unanswerable"
+ },
+ {
+  "id": "q28",
+  "question": "How do I configure Kubernetes autoscaling?",
+  "relevant": [],
+  "type": "unanswerable"
+ }
+]

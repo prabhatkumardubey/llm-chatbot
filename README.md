@@ -10,6 +10,7 @@ Built as an engineering portfolio project, so the documentation is as important 
 | [docs/TECH_SPEC.md](docs/TECH_SPEC.md) | How and why: architecture, stack choices and alternatives, data model, algorithms, design patterns, SOLID, OOP, concurrency, security, limits |
 | [docs/RAG_SPEC.md](docs/RAG_SPEC.md) | Phase 2: retrieval-augmented answers over your own documents, plus hybrid keyword + vector search (specs written before the code) |
 | [docs/TOOLS_SPEC.md](docs/TOOLS_SPEC.md) | Phase 4: model tool/function calling (provider-neutral loop, safe tools, limits) and RAG re-ranking (RAG_SPEC section 14) |
+| [docs/EVAL_SPEC.md](docs/EVAL_SPEC.md), [docs/EVAL_RESULTS.md](docs/EVAL_RESULTS.md) | Retrieval evaluation harness (hit rate, recall, MRR, abstention, bootstrap confidence intervals) and its measured results, including where hybrid search did not help |
 | [docs/AUTH_SPEC.md](docs/AUTH_SPEC.md) | Phase 3: accounts, per-user data isolation, rate limiting, threat model (spec written before the code) |
 
 ## Quick start (no API key needed)
@@ -29,6 +30,12 @@ export OLLAMA_MODEL=llama3.1        # enables "ollama" (local, OpenAI-compatible
 export DEFAULT_PROVIDER=anthropic
 ```
 Model names are configurable (`ANTHROPIC_MODEL`, `OPENAI_MODEL`), because model names change often.
+
+## Evaluate retrieval
+```bash
+python -m app.evaluation --sweep          # offline, deterministic
+python -m app.evaluation --embedder openai --llm-rerank openai   # with real models (needs keys)
+```
 
 ## API
 | Method and path | Purpose |
@@ -58,6 +65,7 @@ docker build -t llmchat . && docker run -p 8000:8000 -v llmchat-data:/data -e AN
 app/config.py      settings from environment        app/providers.py  LLM strategy classes + registry
 app/context.py     context-window trimming          app/store.py      SQLite repository
 app/rag.py         chunking, embeddings, vector search, prompt grounding
+app/evaluation.py  retrieval evaluation harness; data in eval/data/
 app/rerank.py      re-rankers (none, lexical, LLM)      app/tools.py + agent.py  tool registry, safe execution, tool loop
 app/auth.py        users, scrypt password hashing, sessions     app/ratelimit.py  token-bucket rate limiter
 app/main.py        FastAPI app factory and routes   static/index.html web UI (vanilla JS, SSE client)

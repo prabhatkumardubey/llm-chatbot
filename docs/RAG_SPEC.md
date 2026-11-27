@@ -120,7 +120,7 @@ Vector search finds passages that *mean* the same thing but can miss exact ident
 **Alternatives:** weighted sum of normalised scores (needs tuning, fragile); learned sparse retrieval (SPLADE); a cross-encoder re-ranker on the fused top 20 (best accuracy gain, needs a model, not built); maximal marginal relevance for diversity; query expansion.
 
 ### 13.4 Honest caveats
-With the default offline embedder, both rankers are word-based, so hybrid adds little there; the benefit is clearest with semantic embeddings (OpenAI or a local model), where vectors handle paraphrases and BM25 handles exact terms. BM25 thresholds depend on corpus size and must be tuned. The measured benefit on real data is unproven here: it needs the evaluation set from section 7.
+With the default offline embedder, both rankers are word-based, so hybrid adds little there; the benefit is clearest with semantic embeddings (OpenAI or a local model), where vectors handle paraphrases and BM25 handles exact terms. BM25 thresholds depend on corpus size and must be tuned. The benefit is unproven: on the bundled evaluation set with the offline embedder, hybrid did **not** beat BM25 alone (see [EVAL_RESULTS](EVAL_RESULTS.md)); the comparison with a real embedding model has not been run.
 
 ### 13.5 Configuration
 `RAG_MODE` (`hybrid`), `RAG_MIN_BM25` (0.3). The fusion constant 60 is the value from the original RRF paper's setting.
@@ -160,7 +160,7 @@ First-stage retrieval (vectors, BM25, or both) must be fast over every chunk, so
 **Cross-encoder models** (BGE-reranker, MiniLM cross-encoders, Cohere Rerank, Voyage rerank): the usual production choice, trained to score (query, passage) pairs; not built here because model weights cannot be downloaded in this environment, and the interface leaves a slot for them. **Pointwise LLM scoring** (one call per passage: simple but N calls). **Maximal marginal relevance** (diversify results). **Learning-to-rank** over features such as BM25, vector score and recency.
 
 ### 14.5 Caveats
-The measured benefit is unproven without the evaluation set from section 7. The LLM re-ranker's judgement depends on the model chosen and adds cost. Candidates are limited to what first-stage retrieval found, so re-ranking cannot recover a missed chunk.
+The benefit is only partly measured: see [EVAL_RESULTS](EVAL_RESULTS.md) (offline embedder, small synthetic set); it needs a real embedder and a larger question set. The LLM re-ranker's judgement depends on the model chosen and adds cost. Candidates are limited to what first-stage retrieval found, so re-ranking cannot recover a missed chunk.
 
 ### 14.6 Traceability
 | Requirement | Code | Tests |
